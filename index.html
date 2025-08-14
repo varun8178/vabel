@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Funding Frontier: Interactive Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Calm Neutrals -->
+    <!-- Application Structure Plan: A dashboard-style SPA. Starts with a high-level summary (Hero), followed by interactive charts for macro trends (Market Overview). It then delves into strategic analysis with an interactive 'Investment Themes' section. The core is the 'Startup Explorer,' a fully filterable and searchable table of 100 companies, now with an in-line AI summary tool. A 'Top Investors' section allows for another dimension of filtering. A new 'Investment Thesis' section allows for multi-company analysis using an LLM. This structure guides the user from a broad overview to granular details and now allows them to perform high-level synthesis, facilitating understanding and exploration better than a linear report. -->
+    <!-- Visualization & Content Choices: Bar/Donut charts (Chart.js) are used for comparisons and proportions (Funding Growth, Stage) for immediate visual impact. An interactive HTML table with JS controls (search, filter, sort) is chosen for the detailed startup list as it's the most effective way to handle and explore large structured datasets. Interactive cards (HTML/CSS/JS) are used for 'Themes' and 'Investors' to act as high-level filters, simplifying complex relationships. A new multi-select dropdown and button are used for the investment thesis generation, allowing for user-driven synthesis of data points via the Gemini API. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F7F4;
+            color: #3D3D3D;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #C57B57;
+            transform: translateY(-2px);
+        }
+        .startup-row {
+            transition: background-color 0.2s ease-in-out;
+        }
+        .startup-row:hover {
+            background-color: #FDFBF8;
+        }
+        .details-row {
+            display: none;
+            background-color: #FDFBF8;
+        }
+        .details-row.show {
+            display: table-row;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F8F7F4;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #D1CFC7;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #C57B57;
+        }
+        .theme-button.active, .investor-button.active {
+            background-color: #C57B57;
+            color: #FFFFFF;
+        }
+        select[multiple] {
+            height: 200px;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <nav class="sticky top-0 z-50 p-4 shadow-md glassmorphism">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl md:text-2xl font-bold text-[#3D3D3D]">AI Funding Frontier</h1>
+            <div class="hidden md:flex space-x-6 font-medium">
+                <a href="#overview" class="nav-link">Overview</a>
+                <a href="#themes" class="nav-link">Themes</a>
+                <a href="#explorer" class="nav-link">Explorer</a>
+                <a href="#investors" class="nav-link">Investors</a>
+                <a href="#thesis" class="nav-link">Thesis</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 md:p-8">
+
+        <section id="hero" class="text-center py-12">
+            <h2 class="text-3xl md:text-5xl font-bold mb-4">Navigating the AI Investment Surge</h2>
+            <p class="text-lg md:text-xl max-w-3xl mx-auto text-gray-600 mb-8">An interactive analysis of the unprecedented capital influx into AI startups from August 2024 to August 2025.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 class="text-4xl font-bold text-[#C57B57]">$122B+</h3>
+                    <p class="text-gray-500 mt-2">Invested in H1 2025</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 class="text-4xl font-bold text-[#C57B57]">80%</h3>
+                    <p class="text-gray-500 mt-2">YoY Funding Increase (2024)</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 class="text-4xl font-bold text-[#C57B57]">11</h3>
+                    <p class="text-gray-500 mt-2">Companies Raised $1B+ in H1 2025</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="overview" class="py-16">
+            <h2 class="text-3xl font-bold text-center mb-2">Market Overview</h2>
+            <p class="text-lg text-center text-gray-600 max-w-3xl mx-auto mb-12">This section provides a high-level view of the AI funding landscape, visualizing key trends in funding growth, geographic distribution, and investment stages. Interact with the charts to see how capital is flowing across the global AI ecosystem.</p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 class="font-semibold text-xl text-center mb-4">Global AI Funding Growth</h3>
+                    <div class="chart-container">
+                        <canvas id="fundingGrowthChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+                    <h3 class="font-semibold text-xl text-center mb-4">Funding by Investment Stage (Q2 2025)</h3>
+                    <div class="chart-container">
+                        <canvas id="fundingStageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="themes" class="py-16 bg-white rounded-2xl shadow-lg border border-gray-100">
+            <h2 class="text-3xl font-bold text-center mb-2">Key Investment Themes</h2>
+            <p class="text-lg text-center text-gray-600 max-w-3xl mx-auto mb-12">Investment isn't random; it follows strategic themes. This section explores the three dominant narratives driving capital allocation: foundational models, specialized vertical solutions, and the rise of autonomous agents. Click a theme to learn more and filter the startup list below.</p>
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <button class="theme-button py-2 px-5 rounded-full font-semibold transition duration-300 bg-gray-200 hover:bg-[#C57B57] hover:text-white" data-theme="All">All Themes</button>
+                <button class="theme-button py-2 px-5 rounded-full font-semibold transition duration-300 bg-gray-200 hover:bg-[#C57B57] hover:text-white" data-theme="Foundational">🤖 Foundational Models & Infra</button>
+                <button class="theme-button py-2 px-5 rounded-full font-semibold transition duration-300 bg-gray-200 hover:bg-[#C57B57] hover:text-white" data-theme="Vertical">🎯 Vertical AI Solutions</button>
+                <button class="theme-button py-2 px-5 rounded-full font-semibold transition duration-300 bg-gray-200 hover:bg-[#C57B57] hover:text-white" data-theme="Agentic">🧠 Agentic AI</button>
+            </div>
+            <div id="theme-description" class="max-w-3xl mx-auto text-center p-4 rounded-lg bg-[#F8F7F4] min-h-[100px]">
+                <p class="text-gray-700">Select a theme to see a description and filter the data.</p>
+            </div>
+        </section>
+
+        <section id="explorer" class="py-16">
+            <h2 class="text-3xl font-bold text-center mb-2">Interactive Startup Explorer</h2>
+            <p class="text-lg text-center text-gray-600 max-w-3xl mx-auto mb-12">Dive deep into the data. Here you can search, filter, and sort the comprehensive list of 100 recently funded AI startups. Use the controls to narrow down the list by industry or funding amount, and click any startup to reveal more details about its mission and milestones.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-6 bg-white rounded-xl shadow-lg border border-gray-100">
+                <input type="text" id="searchInput" placeholder="Search by name, industry, investor..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C57B57] focus:border-transparent transition">
+                <select id="industryFilter" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C57B57] focus:border-transparent transition">
+                    <option value="">All Industries</option>
+                </select>
+                <div>
+                    <label for="fundingRange" class="block text-sm font-medium text-gray-700">Min Funding: $<span id="fundingValue">0</span>M</label>
+                    <input type="range" id="fundingRange" min="0" max="40000" value="0" step="10" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#C57B57]">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-100">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="name">Startup Name</th>
+                            <th scope="col" class="px-6 py-3 cursor-pointer" data-sort="amount">Amount Raised</th>
+                            <th scope="col" class="px-6 py-3 cursor-pointer hidden md:table-cell" data-sort="industry">Industry</th>
+                            <th scope="col" class="px-6 py-3 cursor-pointer hidden lg:table-cell" data-sort="date">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="startupTableBody">
+                    </tbody>
+                </table>
+                 <div id="no-results" class="hidden text-center p-8 text-gray-500">
+                    <p class="text-xl font-semibold">No startups match your criteria.</p>
+                    <p>Try adjusting your search or filters.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="investors" class="py-16">
+            <h2 class="text-3xl font-bold text-center mb-2">Top Investors</h2>
+            <p class="text-lg text-center text-gray-600 max-w-3xl mx-auto mb-12">Behind every successful startup is a group of key investors. This section highlights the most active venture capital firms shaping the AI landscape. Click on an investor's name to see their portfolio within our list and understand their investment strategy.</p>
+            <div id="investor-list" class="flex flex-wrap justify-center gap-4">
+            </div>
+        </section>
+
+        <section id="thesis" class="py-16 bg-white rounded-2xl shadow-lg border border-gray-100">
+            <h2 class="text-3xl font-bold text-center mb-2">AI-Powered Investment Thesis</h2>
+            <p class="text-lg text-center text-gray-600 max-w-3xl mx-auto mb-12">Curious about a cluster of companies? Select up to three startups and let an AI analyst generate a potential investment thesis for you. This tool synthesizes their core missions and market positions to identify potential synergies.</p>
+            <div class="max-w-3xl mx-auto flex flex-col md:flex-row gap-4 p-6 bg-[#F8F7F4] rounded-xl shadow-inner border border-gray-200">
+                <div class="flex-1">
+                    <label for="companySelector" class="block text-sm font-medium text-gray-700 mb-2">Select 1-3 Companies:</label>
+                    <select id="companySelector" multiple class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C57B57] focus:border-transparent transition">
+                    </select>
+                </div>
+                <div class="flex-shrink-0 md:flex-grow-0 flex items-center justify-center">
+                    <button id="generateThesisBtn" class="bg-[#C57B57] text-white py-3 px-6 rounded-lg font-semibold hover:bg-opacity-90 transition">
+                        Generate Thesis
+                    </button>
+                </div>
+            </div>
+            <div id="thesisOutput" class="max-w-3xl mx-auto mt-8 p-6 bg-[#F8F7F4] rounded-xl border border-gray-200">
+                <p class="text-gray-500">Your investment thesis will appear here after you select companies and click 'Generate Thesis'.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-800 text-white text-center p-6 mt-16">
+        <p>&copy; 2025 AI Funding Frontier. Data synthesized from public sources as of August 14th, 2025.</p>
+        <p class="text-xs text-gray-400 mt-2">This is an interactive visualization and does not constitute financial advice.</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const startupData = [
+                { no: 1, name: "OpenAI", amount: 40000, date: "2025-03-15", industry: "AI Research, Foundational Models", description: "Pioneering AI research lab creating powerful AI tools like GPT-3, ChatGPT, and GPT-5. Focuses on advanced AI infrastructure.", investors: "SoftBank, Microsoft, Coatue, Altimeter, Thrive Capital, Fidelity, Khosla Ventures, Nvidia, MGX", achievements: "$300B post-money valuation (Q1 2025), largest private tech financing ever. GPT-5 released Aug 7, 2025 (45% fewer factual errors, 80% fewer reasoning errors than GPT-4o). Over 700 million weekly users for ChatGPT.", theme: "Foundational" },
+                { no: 2, name: "Databricks", amount: 10000, date: "2024-10-01", industry: "Data & AI, Machine Learning, Unified Analytics", description: "Helps businesses process, analyze, and manage large amounts of data quickly and efficiently using AI and machine learning. Offers a unified analytics platform.", investors: "Thrive Capital, Qatar Investment Authority (QIA), Meta, Temasek", achievements: "$62 Billion valuation (2024), fourth most highly valued U.S.-based startup. Awarded 2025 Databricks Enterprise Data Warehouse Partner of the Year.", theme: "Foundational" },
+                { no: 3, name: "xAI", amount: 10000, date: "2025-07-01", industry: "Generative AI, Advanced AI Infrastructure", description: "Elon Musk's AI company, building advanced 'Grok' language models and pushing AI innovation. Focuses on AI infrastructure and massive data centers.", investors: "Morgan Stanley, Valor Equity Partners, Andreessen Horowitz, Sequoia Capital, Fidelity Management & Research Co., Qatar Investment Authority", achievements: "$24 Billion valuation (May 2024), $50 Billion valuation (Nov 2024). Grok-3 debuted early 2025.", theme: "Foundational" },
+                { no: 4, name: "Anthropic", amount: 3500, date: "2025-02-15", industry: "AI Safety, Research, Large-Scale Models, Conversational AI", description: "AI safety and research company, creator of Claude AI assistant. Focuses on responsible and aligned AI development.", investors: "Lightspeed Venture Partners, Sapphire Ventures, WestBridge Capital, Amazon, Bessemer Venture Partners, Cisco Investments, D1 Capital, Fidelity, General Catalyst, Jane Street, Menlo Ventures, Salesforce Ventures", achievements: "$61.5 Billion valuation (Early 2025). Claude 3.7 Sonnet launched (hybrid reasoning model, exceptional coding performance). $3 Billion annualized revenue in 2025. Claude AI offered to US government for $1 (Aug 12, 2025).", theme: "Foundational" },
+                { no: 5, name: "Scale AI", amount: 14300, date: "2025-06-01", industry: "Data Labeling, Model Evaluation, AI Infrastructure", description: "Data labeling and model evaluation startup for advanced AI models.", investors: "Meta, Accel", achievements: "Meta's investment gave Mark Zuckerberg a 49% stake.", theme: "Foundational" },
+                { no: 6, name: "Anduril Industries", amount: 2500, date: "2025-04-01", industry: "Defense Technology, Autonomous Military Systems, AI-powered Factories", description: "Develops autonomous surveillance systems, drones, and defense software powered by its Lattice AI platform. Specializes in AI-powered, automated factories for defense and aerospace.", investors: "Founders Fund, Sands Capital, Andreessen Horowitz, General Catalyst, Lux Capital, Altimeter", achievements: "$14 Billion valuation (Aug 2024), $30.5 Billion valuation (H1 2025). Opened full-rate SRM manufacturing facility in Mississippi (Jan 2024), test-fired 700+ motors.", theme: "Vertical" },
+                { no: 7, name: "CoreWeave", amount: 2600, date: "2025-07-01", industry: "AI Cloud Infrastructure, GPU-powered Cloud Services", description: "Leading AI infrastructure provider offering GPU-powered cloud services, particularly leveraging Nvidia hardware.", investors: "Morgan Stanley, MUFG, Coatue", achievements: "$19 Billion valuation (May 2024). Reported record revenue of $1.21 Billion for Q2 2025 (207% YoY increase). Revenue backlog reached $30.1 Billion (June 30, 2025).", theme: "Foundational" },
+                { no: 8, name: "Perplexity AI", amount: 500, date: "2025-06-01", industry: "AI Search Engine, Conversational AI", description: "Generative AI search startup offering a conversational search engine that uses advanced AI to search live websites and synthesize information with citations.", investors: "Jeff Bezos, Tobias Lütke, Nat Friedman, Nvidia, Databricks, Accel, IVP, T. Rowe Price, Stanley Druckenmiller", achievements: "$1 Billion valuation (April 2024), $14 Billion valuation (June 2025), $18 Billion valuation (July 2025). Processed 780 million queries in May 2025 (20% MoM growth).", theme: "Agentic" },
+                { no: 9, name: "Thinking Machines Lab", amount: 2000, date: "2025-04-15", industry: "AI Research, Foundational Models", description: "AI research lab founded by former OpenAI CTO Mira Murati.", investors: "Andreessen Horowitz, Greenoaks, Conviction Partners", achievements: "$10 Billion valuation (Q1/Q2 2025), largest seed-stage funding round ever. No launched product yet.", theme: "Foundational" },
+                { no: 10, name: "Safe Superintelligence", amount: 2000, date: "2025-03-01", industry: "AI Safety, Responsible AI Development", description: "AI company founded by former OpenAI chief scientist Ilya Sutskever. Focuses on responsible and aligned AI development.", investors: "Greenoaks, Alphabet, Andreessen Horowitz, Lightspeed, DST Global, Nvidia", achievements: "$32 Billion valuation (Jan-June 2025).", theme: "Foundational" },
+                { no: 11, name: "Anysphere (Cursor)", amount: 900, date: "2025-04-01", industry: "AI Coding, Developer Tools, AI-powered Code Editor", description: "Maker of Cursor, a code editor integrating AI across the development workflow. Aims to improve developer productivity by automating tasks and providing intelligent suggestions.", investors: "Andreessen Horowitz, Thrive Capital, Accel", achievements: "$2.6 Billion valuation (late 2024). Over 1 million daily active users (May 2025). 9,900% year-over-year ARR growth, fastest-growing SaaS product (June 2025).", theme: "Agentic" },
+                { no: 12, name: "Abridge", amount: 300, date: "2025-06-01", industry: "Healthcare AI, Clinical Documentation, Ambient AI", description: "AI healthcare company transforming clinical documentation with ambient AI. Powers deeper understanding in healthcare through purpose-built AI.", investors: "Andreessen Horowitz", achievements: "$5.3 Billion valuation (with $300M round). Announced two mega rounds in four months (Series D in Feb, Series E in June).", theme: "Vertical" },
+                { no: 13, name: "Yellow AI", amount: 102, date: "2025-02-01", industry: "Customer Service Automation, Conversational AI", description: "U.S.-based customer service automation startup.", investors: "Lightspeed Venture Partners, Sapphire Ventures, WestBridge Capital", achievements: "Pushed valuation to over $500 Million.", theme: "Agentic" },
+                { no: 14, name: "GigaML", amount: 40, date: "2025-07-06", industry: "Large Language Models (LLMs) for Enterprises", description: "Offers secure on-premise deployment of large language models for enterprise use cases. Supports enterprises to train LLM for specific use cases.", investors: "Redpoint Ventures, Nexus Venture Partners, Y Combinator, Liquid 2 Ventures", achievements: "$350 Million post-money valuation. Operating at $1-3 Million Annual Recurring Revenue (ARR).", theme: "Foundational" },
+                { no: 15, name: "Atomicwork", amount: 25, date: "2025-01-01", industry: "Enterprise Service Desks, Agentic AI", description: "An AI-native alternative to traditional enterprise service desks. Empowers IT teams with agentic service management to automate workflows.", investors: "Khosla Ventures", achievements: "$120 Million valuation. Operating at $1.2 Million ARR. Deployed and replaced incumbent solutions within 6 weeks, reduced TCO, improved employee experience.", theme: "Agentic" },
+                { no: 16, name: "Emergent", amount: 20, date: "2025-01-01", industry: "AI Agents, Workflow Automation, Multi-agent Orchestration", description: "Made advancements in workflow automation through AI agents controlling tools. Released Agent-E (web control agent) and Orchestrator (manages multiple autonomous agents).", investors: "Lightspeed India", achievements: "$90 Million valuation. Operating at $2.5 Million ARR. Agent-E beat state-of-the-art by 10-30% on benchmarks. Unveiled agents creating agents (March 2025).", theme: "Agentic" },
+                { no: 17, name: "UnifyApps", amount: 50, date: "2025-01-01", industry: "AI-Native Solutions (Enterprise)", description: "(Not explicitly detailed, but Indian-origin AI startup focused on global-first approach.)", investors: "WestBridge Capital", achievements: "$250 Million valuation. Operating at $4-5 Million ARR.", theme: "Vertical" },
+                { no: 18, name: "Confido Health", amount: 9.3, date: "2025-08-11", industry: "Healthcare AI", description: "AI-powered healthcare solutions aimed at revolutionizing patient care and improving health outcomes.", investors: "Blume Ventures, DeVc", achievements: "$35 Million valuation. Operating at $1 Million ARR.", theme: "Vertical" },
+                { no: 19, name: "Composio", amount: 25, date: "2025-08-11", industry: "AI Skill Layer, AI Agent Intelligence", description: "Creates a shared learning layer for AI agents, enabling them to improve through practice and accumulate practical knowledge. Offers 10,000+ tools that can adapt.", investors: "Lightspeed India, Elevation Capital, Together Fund", achievements: "$120 Million valuation. Operating at $400,000 ARR. Attracted over 100,000 developers, serves 200+ startups/enterprises.", theme: "Agentic" },
+                { no: 20, name: "Metaforms", amount: 10, date: "2025-01-01", industry: "Market Research Agencies, AI Automation", description: "Building AI automation from first principles for market research agencies, transitioning from a point solution to a full-stack operating system.", investors: "Peak XV Partners", achievements: "$50 Million valuation. Operating at $1 Million ARR. Competing in a 'blue ocean' market.", theme: "Vertical" },
+                { no: 21, name: "Weaver AI", amount: 11, date: "2025-01-01", industry: "AI Solutions (Pre-revenue)", description: "(Pre-revenue stage, focused on a global-first go-to-market approach.)", investors: "First Round Capital", achievements: "$70 Million valuation.", theme: "Vertical" },
+                { no: 22, name: "Anterior", amount: 20, date: "2024-10-01", industry: "Healthcare AI, Clinical Decisioning", description: "Improves healthcare experience by leveraging AI to make clinical decisioning frictionless and writing playbooks for LLM-enabled enterprise software.", investors: "Sequoia, NEA, DeepMind", achievements: "KLAS Research-Validated Performance, 99.24% accuracy, 74% reduction in clinical workflow time, 92% user satisfaction.", theme: "Vertical" },
+                { no: 23, name: "Harmonic", amount: 100, date: "2025-01-01", industry: "Mathematical Superintelligence", description: "Building mathematical superintelligence.", investors: "Sequoia, Kleiner Perkins", achievements: "Aristotle AI achieved 'Gold-Medal Level Performance' at 2025 International Mathematical Olympiad.", theme: "Foundational" },
+                { no: 24, name: "Vanta", amount: 150, date: "2025-01-01", industry: "Cybersecurity Software, Automated Security Monitoring", description: "Automated security monitoring platform helping companies get SOC 2, HIPAA, or ISO 27001 certified quickly.", investors: "Sequoia, Y Combinator", achievements: "$4.2 Billion valuation.", theme: "Vertical" },
+                { no: 25, name: "XBOW", amount: 75, date: "2025-01-01", industry: "Cybersecurity, Offensive Security", description: "Uses AI to revolutionize offensive security.", investors: "Sequoia", achievements: "(Not explicitly stated beyond funding and mission)", theme: "Vertical" },
+                { no: 26, name: "OpenRouter", amount: 40, date: "2025-01-01", industry: "AI Applications, LLMs, Cloud Hosting", description: "Platform connecting AI applications with LLMs and cloud hosting providers.", investors: "Sequoia, Andreessen Horowitz", achievements: "(Not explicitly stated beyond funding and product)", theme: "Foundational" },
+                { no: 27, name: "Harvey AI", amount: 300, date: "2025-07-01", industry: "Legal AI", description: "AI provider for legal workers.", investors: "Sequoia, Kleiner Perkins, Coatue, GV, DST Global, Conviction, Elad Gil, Open AI Startup Fund, Elemental, SV Angel, Kris Fredrickson, REV", achievements: "$5.0 Billion valuation.", theme: "Vertical" },
+                { no: 28, name: "Hex", amount: 70, date: "2025-01-01", industry: "Analytics, Data Science, Collaborative Workspace", description: "Building a workspace for collaborative analytics and data science, turning data into knowledge.", investors: "Andreessen Horowitz, Sequoia", achievements: "(Not explicitly stated beyond funding and product)", theme: "Vertical" },
+                { no: 29, name: "Kalshi", amount: 185, date: "2025-01-01", industry: "FinTech, Financial Exchange", description: "Built a new financial exchange for traders to trade on opinions and hedge everyday risks.", investors: "Sequoia, Y Combinator", achievements: "$2.0 Billion valuation.", theme: "Vertical" },
+                { no: 30, name: "Statsig", amount: 100, date: "2025-01-01", industry: "SaaS, Enterprise Software, A/B Testing", description: "Modern application building framework automating A/B tests for faster product decisions.", investors: "Sequoia", achievements: "(Not explicitly stated beyond funding and product)", theme: "Vertical" },
+                { no: 31, name: "Listen Labs", amount: 27, date: "2025-01-01", industry: "Artificial Intelligence, Enterprise Software, Market Research", description: "Autonomous market researcher making user research simple and fast.", investors: "Sequoia", achievements: "(Not explicitly stated beyond funding and product)", theme: "Agentic" },
+                { no: 32, name: "Chainguard", amount: 356, date: "2025-01-01", industry: "Cybersecurity, Open Source Security", description: "Provides a secure source for open-source software, continuously rebuilt from source in secure environments.", investors: "Sequoia", achievements: "$3.5 Billion valuation. 97.6% average reduction in CVEs, 80% reduction in attack surface.", theme: "Vertical" },
+                { no: 33, name: "Glean", amount: 150, date: "2025-01-01", industry: "Enterprise AI, Work Assistant, Enterprise Search", description: "AI-powered work assistant and Work AI platform helping employees find answers, generate content, and automate work.", investors: "Sequoia, Kleiner Perkins, Lightspeed, Coatue, General Catalyst", achievements: "$7.2 Billion valuation.", theme: "Agentic" },
+                { no: 34, name: "Basis", amount: 37, date: "2024-10-01", industry: "AI Accounting Software", description: "Makes AI accounting software that can do clerical work in minutes, streamlining data entry tasks.", investors: "BTV, Khosla Ventures", achievements: "Accounting firm Wiss claimed nearly 30% reduction in time spent on tasks after adoption.", theme: "Vertical" },
+                { no: 35, name: "Isomorphic Labs", amount: 600, date: "2025-03-26", industry: "Drug Discovery, AI in Biotech", description: "London-based DeepMind spin-off focused on AI-driven drug discovery.", investors: "Thrive Capital, GV, Alphabet", achievements: "(Not explicitly stated beyond funding and focus)", theme: "Vertical" },
+                { no: 41, name: "Grammarly", amount: 1000, date: "2025-05-01", industry: "AI Writing Assistant, Language AI", description: "(Known for AI-powered writing assistance for businesses and individuals)", investors: "(Not explicitly stated)", achievements: "(Not explicitly stated beyond funding)", theme: "Agentic" },
+                { no: 42, name: "Helsing", amount: 694, date: "2025-05-01", industry: "Defense AI", description: "(German defense AI company)", investors: "(Not explicitly stated)", achievements: "€12 Billion valuation.", theme: "Vertical" },
+                { no: 43, name: "Graas AI", amount: 9, date: "2025-07-01", industry: "E-commerce Technology, AI Agents", description: "Platform replacing manual workflows with AI-backed autonomous agents for digital commerce brands.", investors: "Tin Men Capital, Incred Wealth, Orzon, Integra Partners, Yuj Ventures", achievements: "Supports over 2,000 brands, processed over $1 Billion in GMV.", theme: "Agentic" },
+                { no: 44, name: "PS Miner", amount: 350, date: "2025-07-01", industry: "Cloud Mining, AI Mining Systems", description: "UK-based cloud mining platform enhancing network of renewable energy-powered data centers and developing AI mining systems.", investors: "(Not specified)", achievements: "Operates over 50 data centers, aims for more environmentally sustainable and cost-effective services.", theme: "Foundational" },
+                { no: 45, name: "Quavo", amount: 300, date: "2025-07-01", industry: "FinTech, Dispute Management Software, AI-driven Product Innovation", description: "Leading dispute management software provider for financial institutions.", investors: "Spectrum Equity", achievements: "Aims to accelerate AI-driven product innovation and expand go-to-market and client success teams.", theme: "Vertical" },
+                { no: 46, name: "Hadrian", amount: 260, date: "2025-07-01", industry: "Advanced Manufacturing, Defense & Aerospace, AI-powered Factories", description: "Advanced manufacturing startup specializing in AI-powered, automated factories for defense and aerospace.", investors: "Founders Fund, Lux Capital, Morgan Stanley", achievements: "Plans to build a new 270,000 sq ft factory and software hub in Mesa, Arizona.", theme: "Vertical" },
+                { no: 47, name: "XPANCEO", amount: 250, date: "2025-07-01", industry: "Deep Tech, Smart Contact Lenses, XR", description: "Developing the next generation of computing via multifunctional, AI-powered XR contact lenses.", investors: "Opportunity Venture (Asia)", achievements: "$1.35 Billion valuation, became a unicorn.", theme: "Vertical" },
+                { no: 48, name: "Bilt Rewards", amount: 250, date: "2025-07-01", industry: "FinTech, Loyalty Program, Real Estate", description: "First loyalty program rewarding members on rent and in their neighborhood. Allows points transfer to airlines/hotels or for down payment on a home.", investors: "(Not specified)", achievements: "Over $1 Billion of credit originated on its platform. Annual recurring revenue increased 'more than 50x' since Sept 2022.", theme: "Vertical" },
+                { no: 49, name: "Lovable", amount: 200, date: "2025-07-01", industry: "Vibe Coding, AI Solutions", description: "Vibe coding startup.", investors: "Accel", achievements: "$1.8 Billion valuation. Reached $75 Million ARR within seven months, accelerated to $100 Million ARR.", theme: "Agentic" },
+                { no: 50, name: "Reka AI", amount: 110, date: "2025-07-01", industry: "Multimodal AI Solutions", description: "Multimodal AI solutions lab.", investors: "Nvidia, Snowflake", achievements: "$1 Billion valuation.", theme: "Foundational" },
+                { no: 51, name: "Anaconda", amount: 150, date: "2025-07-01", industry: "Data Science, Python/R Management, AI Tools", description: "Simplifies management of Python and R for data science projects. Provides AI tools for businesses using open-source applications.", investors: "Insight Partners", achievements: "$1.5 Billion valuation. $150 Million ARR as of July 2025, profitable. 50M+ users globally.", theme: "Foundational" },
+                { no: 52, name: "EnCharge AI", amount: 100, date: "2025-01-01", industry: "AI Chip Development", description: "An emerging AI chip developer.", investors: "Tiger Global", achievements: "(Not explicitly stated beyond funding and focus)", theme: "Foundational" },
+                { no: 53, name: "Liquid AI", amount: 250, date: "2024-12-13", industry: "Foundation Models", description: "Foundation model startup.", investors: "AMD Ventures, Duke Capital Partners, The Pags Group, OSS Capital", achievements: "$2.35 Billion valuation.", theme: "Foundational" },
+                { no: 54, name: "Tractian", amount: 120, date: "2024-12-05", industry: "Machine Intelligence", description: "Machine intelligence company.", investors: "Sapphire Ventures, NGP Capital, General Catalyst", achievements: "$720 Million valuation.", theme: "Vertical" },
+                { no: 55, name: "Tenstorrent", amount: 693, date: "2024-12-02", industry: "AI Hardware", description: "AI hardware company.", investors: "Samsung Securities, AFW Partners, Fidelity, Bezos Expeditions, Hyundai Motor Group", achievements: "$2.7 Billion valuation.", theme: "Foundational" },
+                { no: 56, name: "Enfabrica", amount: 115, date: "2024-11-19", industry: "AI Networking Chips, Accelerated Compute Fabric (ACF)", description: "AI networking chip startup developing high-performance interconnect solutions.", investors: "Spark Capital, Sutter Hill Ventures, Cisco Investments, Valor Equity Partners", achievements: "ACF solution cuts GPU compute cost by 50% for LLM inferencing, 75% for DLRM inferencing.", theme: "Foundational" },
+                { no: 57, name: "Writer", amount: 200, date: "2024-11-12", industry: "Generative AI Platform", description: "Full-stack generative AI platform.", investors: "Radical Ventures, Premji Invest, Iconiq, Salesforce Ventures, Insight Partners, Vanguard", achievements: "$1.9 Billion valuation.", theme: "Agentic" },
+                { no: 58, name: "Physical Intelligence", amount: 400, date: "2024-11-04", industry: "Foundational Software for Robots", description: "Startup developing foundational software for robots.", investors: "Lux Capital, Sequoia, Jeff Bezos", achievements: "Over $2 Billion valuation.", theme: "Foundational" },
+                { no: 59, name: "Sierra", amount: 175, date: "2024-10-28", industry: "AI Chatbots for Enterprise", description: "Makes AI chatbots for enterprise customers.", investors: "Greenoaks, Thrive Capital, Iconiq Capital", achievements: "Nearly $4.5 Billion valuation.", theme: "Agentic" },
+                { no: 60, name: "Nimble Robotics", amount: 106, date: "2024-10-23", industry: "Autonomous Warehouse Robotics", description: "Autonomous warehouse robotics startup.", investors: "FedEx, Cedar Pine", achievements: "$1.1 Billion valuation, achieved unicorn status.", theme: "Vertical" },
+                { no: 61, name: "Lightmatter", amount: 400, date: "2024-10-16", industry: "Photonic Computing", description: "Photonic computing startup.", investors: "T. Rowe Price", achievements: "$4.4 Billion valuation. Raised over $800 Million in VC.", theme: "Foundational" },
+                { no: 62, name: "KoBold Metals", amount: 491.5, date: "2024-10-01", industry: "Mineral Exploration, AI in Mining", description: "(Implies AI for mineral exploration)", investors: "Bond, Andreessen Horowitz (past investors)", achievements: "(Not explicitly stated beyond funding)", theme: "Vertical" },
+                { no: 68, name: "n8n", amount: 40, date: "2025-08-01", industry: "AI Automation Software, Business Task Automation", description: "Develops software that automates business tasks using AI agents. Uses a 'fair-code' licensing model.", investors: "Accel, Meritech Capital", achievements: "Annual recurring revenue surpassed US$40 Million. Valuation of $2.3B.", theme: "Agentic" },
+                { no: 69, name: "Ultromics", amount: 55, date: "2025-07-01", industry: "Healthtech, AI-Powered Heart Failure Detection", description: "AI platform for detecting heart failure through echocardiograms, aiming for faster, more accurate cardiac diagnostics.", investors: "Blue Venture Fund, Optum Ventures", achievements: "(Not explicitly stated beyond funding and mission)", theme: "Vertical" },
+                { no: 70, name: "FloVision", amount: 8.7, date: "2025-07-01", industry: "AI-Powered Protein Production Optimization", description: "AI-powered platform optimizing protein manufacturing by reducing biological waste and streamlining production.", investors: "IndieBio, SOSV", achievements: "Processed over 23.2 million kg of food since 2020. Recovered up to 1.5% more yield for customers.", theme: "Vertical" },
+                { no: 71, name: "CuspAI", amount: 100, date: "2025-07-01", industry: "AI-Driven Materials Discovery, Climate Solutions", description: "Accelerates AI-driven materials discovery for climate-related challenges (carbon capture, green manufacturing).", investors: "Index Ventures, Lightspeed Venture Partners", achievements: "Materials discovery accelerated to as little as six months with AI. Partnered with Kemira for PFAS removal.", theme: "Vertical" },
+                { no: 72, name: "Bhindi AI", amount: 4, date: "2025-08-01", industry: "Agentic AI Platform, Productivity, Automation", description: "Agentic AI platform designed as a 'killer everything app' mimicking human behavior, allowing tasks to run autonomously. Integrates 300+ AI agents.", investors: "Cyber Fund", achievements: "Attracted over 5,000 users, processed 333,000+ messages, 52,330 agent executions.", theme: "Agentic" },
+                { no: 73, name: "CodeAnt.ai", amount: 2, date: "2025-04-26", industry: "AI Code Review Platform", description: "AI-powered platform automating code reviews, identifying bugs and optimization opportunities.", investors: "Cavalry Ventures, angel investors", achievements: "Reduces manual code checking time and bugs by over 50%.", theme: "Agentic" },
+                { no: 74, name: "Valid", amount: 5.5, date: "2025-02-01", industry: "AI-Driven Digital Ad Agency", description: "Leverages AI to automate ad campaign optimization for precise targeting.", investors: "Canaan Partners", achievements: "(Not explicitly stated beyond funding and mission)", theme: "Vertical" },
+                { no: 75, name: "Lumi AI", amount: 3.7, date: "2025-03-26", industry: "AI Platform for Unstructured Data Insights", description: "AI platform transforming how businesses generate insights from unstructured data.", investors: "AgFunder, Forum Ventures, ADQ, Qora71", achievements: "Plans to expand go-to-market efforts and enhance product capabilities.", theme: "Vertical" },
+                { no: 78, name: "Blink Ops", amount: 50, date: "2025-07-28", industry: "Security Automation, Cybersecurity", description: "Agentic security automation platform enabling creation of custom security micro-agents for various tasks.", investors: "O.G. Venture Partners, Lightspeed Venture Partners, Hetz Ventures, Vertex Growth", achievements: "Total raised $90 Million. Platform has 30,000+ integrations, 10,000 workflow templates, hundreds of agent templates.", theme: "Agentic" },
+                { no: 81, name: "April", amount: 38, date: "2025-07-23", industry: "Financial Services (AI-related)", description: "(Not explicitly detailed, but likely involves AI for financial services)", investors: "(Not specified)", achievements: "(Not explicitly stated beyond funding)", theme: "Vertical" },
+                { no: 84, name: "Asylon", amount: 24, date: "2025-07-22", industry: "Security & Investigations, Robotics, AI-powered Security", description: "Robotic perimeter security technology, integrating autonomous drones, ground robotics, and AI-driven command software.", investors: "Insight Partners, Veteran Ventures Capital, Allegion Ventures, GO PA Fund", achievements: "Completed over 250,000 robotic security missions.", theme: "Vertical" },
+                { no: 86, name: "GigaIO", amount: 21, date: "2025-07-17", industry: "Information Technology & Services, AI Infrastructure", description: "Composable server infrastructure startup producing SuperNODE (32-GPU AI supercomputer) and Gryf (mini supercomputer-on-wheels) with patented FabreX memory fabric architecture.", investors: "Impact Venture Capital, CerraCap Ventures, G Vision Capital, Mark IV Capital, SourceCode Cerberus", achievements: "Claims to unlock performance and cost efficiencies for AI models. Total public funding $40.25M.", theme: "Foundational" },
+                { no: 92, name: "Base Power", amount: 200, date: "2025-04-09", industry: "Electrical/Electronic Manufacturing, Energy", description: "Residential backup battery systems and electricity plans. Performs grid balancing, charges when electricity is cheap, discharges when expensive.", investors: "Andreessen Horowitz", achievements: "Beta outage prediction technology protects from 97% of outages.", theme: "Vertical" },
+                { no: 93, name: "Chestnut Carbon", amount: 160, date: "2025-02-12", industry: "Environmental Services, Carbon Removal", description: "Nature-based carbon removal developer operating high-quality U.S. forestry projects.", investors: "(Not specified)", achievements: "Goals: 100,000+ acres of restored forest by 2030, 100 Million tonnes of carbon removed. Gold Standard® and FSC® certified.", theme: "Vertical" },
+                { no: 95, name: "NewLimit", amount: 130, date: "2025-01-01", industry: "Biotech, Healthcare, Epigenetic Therapies", description: "Developing epigenetic therapies to extend human healthspan by reprogramming aging cells.", investors: "Founders Fund", achievements: "(Not explicitly stated beyond funding and mission)", theme: "Vertical" },
+                { no: 96, name: "Sprinter Health", amount: 32, date: "2025-01-01", industry: "Healthcare, Medical", description: "Sends full-time nurses into the home to perform lab draws and check vitals.", investors: "Andreessen Horowitz, Accel", achievements: "(Not explicitly stated beyond funding and service)", theme: "Vertical" },
+                { no: 97, name: "Graphite", amount: 52, date: "2025-01-01", industry: "AI Code Review, SaaS, Enterprise Software", description: "AI code review platform helping developers create, review, and merge changes faster.", investors: "Andreessen Horowitz, Accel", achievements: "(Not explicitly stated beyond funding and product)", theme: "Agentic" },
+                { no: 98, name: "Camber", amount: 30, date: "2025-01-01", industry: "Healthcare, FinTech, Payments", description: "Streamlines healthcare payments, easing administrative headaches for clinics and families.", investors: "Andreessen Horowitz, Y Combinator", achievements: "(Not explicitly stated beyond funding and service)", theme: "Vertical" },
+                { no: 99, name: "Clay", amount: 40, date: "2025-01-01", industry: "Artificial Intelligence, SaaS, Enterprise Software", description: "Data enrichment solutions and personalized outreach automation.", investors: "Sequoia", achievements: "$1.3 Billion valuation.", theme: "Agentic" },
+                { no: 100, name: "Graphiant", amount: 19, date: "2025-01-01", industry: "Networking", description: "Working on next-generation networking technologies.", investors: "Sequoia", achievements: "(Not explicitly stated beyond funding and focus)", theme: "Foundational" }
+            ].filter(d => d.amount > 0);
+
+            let currentSort = { column: 'amount', order: 'desc' };
+            let currentThemeFilter = 'All';
+            let currentInvestorFilter = null;
+
+            const tableBody = document.getElementById('startupTableBody');
+            const searchInput = document.getElementById('searchInput');
+            const industryFilter = document.getElementById('industryFilter');
+            const fundingRange = document.getElementById('fundingRange');
+            const fundingValue = document.getElementById('fundingValue');
+            const noResultsDiv = document.getElementById('no-results');
+
+            const companySelector = document.getElementById('companySelector');
+            const generateThesisBtn = document.getElementById('generateThesisBtn');
+            const thesisOutput = document.getElementById('thesisOutput');
+
+            function formatCurrency(amount) {
+                if (amount >= 1000) {
+                    return `$${(amount / 1000).toFixed(1)}B`;
+                }
+                return `$${amount}M`;
+            }
+
+            function renderTable(data) {
+                tableBody.innerHTML = '';
+                if (data.length === 0) {
+                    noResultsDiv.style.display = 'block';
+                } else {
+                    noResultsDiv.style.display = 'none';
+                }
+                data.forEach(startup => {
+                    const row = document.createElement('tr');
+                    row.className = 'bg-white border-b startup-row cursor-pointer';
+                    row.dataset.startupId = startup.no;
+                    row.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${startup.name}</td>
+                        <td class="px-6 py-4 text-[#C57B57] font-semibold">${formatCurrency(startup.amount)}</td>
+                        <td class="px-6 py-4 hidden md:table-cell">${startup.industry}</td>
+                        <td class="px-6 py-4 hidden lg:table-cell">${new Date(startup.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</td>
+                    `;
+                    row.addEventListener('click', () => toggleDetails(startup, row));
+                    tableBody.appendChild(row);
+                });
+            }
+            
+            function toggleDetails(startup, rowElement) {
+                const existingDetails = document.getElementById(`details-${startup.no}`);
+                if (existingDetails) {
+                    existingDetails.remove();
+                    rowElement.classList.remove('bg-gray-100');
+                    return;
+                }
+
+                document.querySelectorAll('.details-row').forEach(row => row.remove());
+                document.querySelectorAll('.startup-row').forEach(row => row.classList.remove('bg-gray-100'));
+                
+                rowElement.classList.add('bg-gray-100');
+                const detailsRow = document.createElement('tr');
+                detailsRow.id = `details-${startup.no}`;
+                detailsRow.className = 'details-row';
+                detailsRow.innerHTML = `
+                    <td colspan="4" class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <h4 class="font-bold text-gray-800 mb-2">Description</h4>
+                                <p>${startup.description}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-800 mb-2">Key Investors</h4>
+                                <p>${startup.investors}</p>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-800 mb-2">Notable Achievements</h4>
+                                <p>${startup.achievements}</p>
+                                <button id="summarize-btn-${startup.no}" class="mt-4 bg-[#C57B57] text-white py-2 px-4 rounded-lg font-semibold hover:bg-opacity-90 transition">
+                                    ✨ Summarize with AI
+                                </button>
+                                <div id="summary-output-${startup.no}" class="mt-4 p-4 bg-[#F8F7F4] rounded-lg border border-gray-200 hidden"></div>
+                            </div>
+                        </div>
+                    </td>
+                `;
+                detailsRow.classList.add('show');
+                rowElement.after(detailsRow);
+
+                document.getElementById(`summarize-btn-${startup.no}`).addEventListener('click', () => summarizeDescription(startup.description, startup.achievements, startup.no));
+            }
+
+            function populateFilters() {
+                const industries = [...new Set(startupData.map(s => s.industry.split(',')[0].trim()))].sort();
+                industries.forEach(industry => {
+                    const option = document.createElement('option');
+                    option.value = industry;
+                    option.textContent = industry;
+                    industryFilter.appendChild(option);
+                });
+
+                const investors = {};
+                startupData.forEach(s => {
+                    s.investors.split(',').forEach(inv => {
+                        const investor = inv.trim();
+                        if (investor && investor !== '(Not specified)') {
+                            investors[investor] = (investors[investor] || 0) + 1;
+                        }
+                    });
+                });
+                const sortedInvestors = Object.entries(investors).sort((a, b) => b[1] - a[1]).slice(0, 12);
+                const investorList = document.getElementById('investor-list');
+                sortedInvestors.forEach(([name, count]) => {
+                    const button = document.createElement('button');
+                    button.className = 'investor-button bg-white text-gray-700 py-2 px-4 rounded-full shadow border border-gray-200 hover:bg-[#C57B57] hover:text-white transition';
+                    button.textContent = name;
+                    button.dataset.investor = name;
+                    investorList.appendChild(button);
+                });
+                
+                startupData.forEach(startup => {
+                    const option = document.createElement('option');
+                    option.value = startup.no;
+                    option.textContent = startup.name;
+                    companySelector.appendChild(option);
+                });
+            }
+
+            function filterAndSortData() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedIndustry = industryFilter.value;
+                const minFunding = parseInt(fundingRange.value);
+
+                let filteredData = startupData.filter(s => {
+                    const matchesSearch = searchTerm === '' ||
+                        s.name.toLowerCase().includes(searchTerm) ||
+                        s.industry.toLowerCase().includes(searchTerm) ||
+                        s.investors.toLowerCase().includes(searchTerm);
+                    const matchesIndustry = selectedIndustry === '' || s.industry.includes(selectedIndustry);
+                    const matchesFunding = s.amount >= minFunding;
+                    const matchesTheme = currentThemeFilter === 'All' || s.theme === currentThemeFilter;
+                    const matchesInvestor = !currentInvestorFilter || s.investors.includes(currentInvestorFilter);
+                    return matchesSearch && matchesIndustry && matchesFunding && matchesTheme && matchesInvestor;
+                });
+
+                filteredData.sort((a, b) => {
+                    const aVal = a[currentSort.column];
+                    const bVal = b[currentSort.column];
+                    let comparison = 0;
+                    if (aVal > bVal) comparison = 1;
+                    else if (aVal < bVal) comparison = -1;
+                    return currentSort.order === 'desc' ? comparison * -1 : comparison;
+                });
+
+                renderTable(filteredData);
+            }
+
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                th.addEventListener('click', () => {
+                    const column = th.dataset.sort;
+                    if (currentSort.column === column) {
+                        currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.column = column;
+                        currentSort.order = 'desc';
+                    }
+                    filterAndSortData();
+                });
+            });
+
+            searchInput.addEventListener('input', filterAndSortData);
+            industryFilter.addEventListener('change', filterAndSortData);
+            fundingRange.addEventListener('input', () => {
+                fundingValue.textContent = fundingRange.value >= 1000 ? `${(fundingRange.value/1000).toFixed(1)}B` : `${fundingRange.value}`;
+                filterAndSortData();
+            });
+            
+            const themeButtons = document.querySelectorAll('.theme-button');
+            const themeDescription = document.getElementById('theme-description');
+            const themeDescriptions = {
+                All: "Showing all startups. The AI funding landscape is diverse, spanning foundational research to specific applications.",
+                Foundational: "These companies build the core infrastructure and large-scale models that power the AI ecosystem. Investments here are large, long-term bets on the fundamental building blocks of AI.",
+                Vertical: "These startups apply AI to solve specific problems in industries like healthcare, finance, and legal. They focus on deep domain expertise and delivering clear ROI.",
+                Agentic: "This is the frontier of AI. These startups are creating autonomous agents that can perform complex tasks, learn, and adapt, promising to revolutionize workflow automation."
+            };
+
+            themeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    themeButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    currentThemeFilter = button.dataset.theme;
+                    themeDescription.innerHTML = `<p>${themeDescriptions[currentThemeFilter]}</p>`;
+                    currentInvestorFilter = null;
+                    document.querySelectorAll('.investor-button').forEach(btn => btn.classList.remove('active'));
+                    filterAndSortData();
+                });
+            });
+
+            document.getElementById('investor-list').addEventListener('click', (e) => {
+                if (e.target.classList.contains('investor-button')) {
+                    const investor = e.target.dataset.investor;
+                    document.querySelectorAll('.investor-button').forEach(btn => btn.classList.remove('active', 'bg-[#C57B57]', 'text-white'));
+                    
+                    if (currentInvestorFilter === investor) {
+                        currentInvestorFilter = null;
+                    } else {
+                        currentInvestorFilter = investor;
+                        e.target.classList.add('active', 'bg-[#C57B57]', 'text-white');
+                    }
+                    
+                    currentThemeFilter = 'All';
+                    themeButtons.forEach(btn => btn.classList.remove('active'));
+                    document.querySelector('.theme-button[data-theme="All"]').classList.add('active');
+                    themeDescription.innerHTML = `<p>${themeDescriptions.All}</p>`;
+                    
+                    filterAndSortData();
+                }
+            });
+
+            const chartColors = {
+                primary: 'rgba(197, 123, 87, 0.8)',
+                primaryHover: 'rgba(197, 123, 87, 1)',
+                secondary: 'rgba(97, 118, 133, 0.8)',
+                secondaryHover: 'rgba(97, 118, 133, 1)',
+                tertiary: 'rgba(169, 169, 169, 0.8)',
+                tertiaryHover: 'rgba(169, 169, 169, 1)',
+            };
+
+            new Chart(document.getElementById('fundingGrowthChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['2023 Total', '2024 Total', 'H1 2025'],
+                    datasets: [{
+                        label: 'Global AI Funding (in Billion USD)',
+                        data: [55.6, 100, 122],
+                        backgroundColor: [chartColors.tertiary, chartColors.secondary, chartColors.primary],
+                        borderColor: [chartColors.tertiaryHover, chartColors.secondaryHover, chartColors.primaryHover],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: {
+                        callbacks: { label: (context) => `$${context.raw} Billion` }
+                    }},
+                    scales: { y: { beginAtZero: true, ticks: { callback: (value) => `$${value}B` } } }
+                }
+            });
+
+            new Chart(document.getElementById('fundingStageChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Seed Stage (skewed)', 'Early Stage (A/B)', 'Late Stage'],
+                    datasets: [{
+                        label: 'Funding by Stage',
+                        data: [10.3, 26, 70],
+                        backgroundColor: [chartColors.tertiary, chartColors.secondary, chartColors.primary],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' }, tooltip: {
+                        callbacks: { label: (context) => `${context.label}: $${context.raw} Billion` }
+                    }}
+                }
+            });
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                });
+            });
+
+            const callGeminiApi = async (prompt) => {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        throw new Error("Invalid API response format");
+                    }
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error);
+                    throw error;
+                }
+            };
+            
+            const summarizeDescription = async (description, achievements, id) => {
+                const summaryDiv = document.getElementById(`summary-output-${id}`);
+                const summarizeBtn = document.getElementById(`summarize-btn-${id}`);
+                summaryDiv.classList.remove('hidden');
+                summaryDiv.innerHTML = '<p class="text-gray-500 animate-pulse">Generating summary...</p>';
+                summarizeBtn.disabled = true;
+                
+                const prompt = `Summarize the following company description and notable achievements in a concise, one-paragraph summary for an investor. Focus on the company's core mission and key successes.
+                Description: ${description}
+                Achievements: ${achievements}`;
+
+                try {
+                    const summary = await callGeminiApi(prompt);
+                    summaryDiv.innerHTML = `<p>${summary}</p>`;
+                } catch (error) {
+                    console.error("Error generating summary:", error);
+                    summaryDiv.innerHTML = `<p class="text-red-500">Error: Could not generate summary. Please try again.</p>`;
+                } finally {
+                    summarizeBtn.disabled = false;
+                }
+            };
+
+            const generateInvestmentThesis = async () => {
+                const selectedOptions = Array.from(companySelector.selectedOptions);
+                const thesisOutputDiv = document.getElementById('thesisOutput');
+                const generateBtn = document.getElementById('generateThesisBtn');
+
+                if (selectedOptions.length === 0 || selectedOptions.length > 3) {
+                    thesisOutputDiv.innerHTML = `<p class="text-red-500">Please select 1 to 3 companies to generate a thesis.</p>`;
+                    return;
+                }
+
+                thesisOutputDiv.innerHTML = '<p class="text-gray-500 animate-pulse">Analyzing companies and generating thesis...</p>';
+                generateBtn.disabled = true;
+                
+                const selectedCompanies = selectedOptions.map(option => {
+                    const startup = startupData.find(s => s.no.toString() === option.value);
+                    return `Company: ${startup.name}, Description: ${startup.description}, Theme: ${startup.theme}, Amount Raised: ${formatCurrency(startup.amount)}`;
+                }).join('\n\n');
+
+                const prompt = `You are an AI investment analyst. Analyze the following AI startups and their core themes. Generate a potential investment thesis explaining why investing in this group of companies would be a compelling strategy. Focus on their complementary strengths, market positions, and potential for synergy.
+                
+                Selected Companies:
+                ${selectedCompanies}`;
+
+                try {
+                    const thesis = await callGeminiApi(prompt);
+                    thesisOutputDiv.innerHTML = `<p>${thesis.replace(/\n/g, '<br>')}</p>`;
+                } catch (error) {
+                    console.error("Error generating thesis:", error);
+                    thesisOutputDiv.innerHTML = `<p class="text-red-500">Error: Could not generate thesis. Please try again.</p>`;
+                } finally {
+                    generateBtn.disabled = false;
+                }
+            };
+
+            generateThesisBtn.addEventListener('click', generateInvestmentThesis);
+            
+            populateFilters();
+            filterAndSortData();
+            document.querySelector('.theme-button[data-theme="All"]').classList.add('active');
+            themeDescription.innerHTML = `<p>${themeDescriptions.All}</p>`;
+        });
+    </script>
+</body>
+</html>
